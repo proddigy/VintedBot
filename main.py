@@ -1,31 +1,67 @@
-from parser import vinted
-from tqdm import tqdm
-from db_manager import VintedDBManager
+import time
 
-if __name__ == '__main__':
-    category = 'Carhartt'
-    items = vinted.parse(category)
+from parser import VintedParser
+from db_manager import VintedDBManager
+from models import Item
+
+
+marketplaces = ('vinted', 'depop', 'ebay', 'mercari', 'grailed')
+
+marketplace_to_dbmanager = {
+    'vinted': VintedDBManager,
+    # 'depop': DepopDBManager,
+    # 'ebay': EbayDBManager,
+    # 'mercari': MercariDBManager,
+    # 'grailed': GrailedDBManager
+}
+marketplace_to_parser = {
+    'vinted': VintedParser,
+    # 'depop': DepopParser,
+    # 'ebay': EbayParser,
+    # 'mercari': MercariParser,
+    # 'grailed': GrailedParser
+}
+
+
+def main():
+    from tqdm import tqdm
+    marketplace = get_marketplace()
+    category = input('Enter category: ')
+    # db_m = marketplace_to_dbmanager[marketplace]()
+    parser = marketplace_to_parser[marketplace]()
+    items = parser.get(category)
     for item in tqdm(items,
-                     desc='Parsing details',
-                     ncols=100,
-                     nrows=100,
-                     colour='blue',
+                     desc='Inserting items into database',
+                     colour='green',
                      unit='items',
                      total=len(items)):
+        print(parser.get_details(item))
+        time.sleep(1)
 
-        match item.market_place:
-            case 'Vinted':
-                db_manager = VintedDBManager()
-            case 'Depop':
-                # db_manager = DepopDBManager()
-                pass
-            case 'Ebay':
-                # db_manager = EbayDBManager()
-                pass
-            case 'Mercari':
-                # db_manager = MercariDBManager()
-                pass
-            case 'Grailed':
-                # db_manager = GrailedDBManager()
-                pass
-        db_manager.insert_item(item)
+
+def get_marketplace():
+    marketplace = input('Enter marketplace: ')
+    match marketplace:
+        case 'vinted':
+            return marketplace
+        case 'exit':
+            exit()
+        case _:
+            print('Marketplace not supported')
+
+    get_marketplace()
+
+
+def get_item_details(item: Item) -> Item:
+    marketplace = get_marketplace()
+    parser = marketplace_to_parser[marketplace]()
+    return parser.get_details(item)
+
+
+if __name__ == '__main__':
+    # print(get_item_details(
+    #     'https://www.vinted.pl/'
+    #     'mezczyzni/akcesoria-dodatki/'
+    #     'kapelusze-i-czapki/'
+    #     'zimowe-czapki/2697590571-czapka'))
+    main()

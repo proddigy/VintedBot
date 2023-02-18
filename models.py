@@ -10,10 +10,7 @@ class Item:
     size: str = None
     color: str = None
     category: str = None
-    description: str = None
     condition: str = None
-    shipping: str = None
-    seller: str = None
     url: str = None
     market_place: str = None
     date_added: datetime.datetime = None

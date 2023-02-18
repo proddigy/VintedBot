@@ -1,19 +1,30 @@
-from psycopg import connect
+import os
 from abc import ABC, abstractmethod
+from psycopg import connect
 from models import Item
-from decouple import config
+
+DEBUG = True
 
 
-class DBManagerABC(ABC):
+class ParserDBManagerABC(ABC):
+    __instance = None
+
     def __init__(self):
-        self._conn = connect(
-            dbname=config('DB_NAME'),
-            user=config('DB_USER'),
-            password=config('DB_PASSWORD'),
-            host=config('DB_HOST'),
-            port=config('DB_PORT')
-        )
+        try:
+            self._conn = connect(
+                dbname=os.environ['DB_NAME'],
+                user=os.environ['DB_USER'],
+                password=os.environ['DB_PASSWORD'],
+                host=os.environ['DB_HOST'],
+                port=os.environ['DB_PORT']
+            )
+        except Exception as e:
+            print(e)
+            exit()
         self._cur = self._conn.cursor()
+        if DEBUG:
+            self.drop_table()
+        self.create_table()
 
     @abstractmethod
     def create_table(self):
@@ -31,16 +42,104 @@ class DBManagerABC(ABC):
     def get_item(self, url: str) -> Item:
         pass
 
+    @abstractmethod
+    def drop_table(self):
+        pass
 
-class VintedDBManager(DBManagerABC):
+    def __new__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+        return cls.__instance
+
+    def __del__(self):
+        self._conn.close()
+
+
+class CategoryDBManagerABC(ABC):
+    __instance = None
+
+    def __init__(self):
+        self._conn = connect(
+            dbname=config('DB_NAME'),
+            user=config('DB_USER'),
+            password=config('DB_PASSWORD'),
+            host=config('DB_HOST'),
+            port=config('DB_PORT')
+        )
+        self._cur = self._conn.cursor()
+        self.create_table()
+
+    @abstractmethod
+    def create_table(self):
+        pass
+
+    @abstractmethod
+    def insert_category(self, category: str):
+        pass
+
+    @abstractmethod
+    def get_categories(self) -> list:
+        pass
+
+    def __new__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+        return cls.__instance
+
+    def __del__(self):
+        self._conn.close()
+
+
+class VintedCategoryDBManager(CategoryDBManagerABC):
     def __init__(self):
         super().__init__()
-        self.__market_place = 'Vinted'
 
     def create_table(self):
         self._cur.execute(
             """
-            CREATE TABLE IF NOT EXISTS %s.items (
+            CREATE TABLE IF NOT EXISTS vinted_categories (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) UNIQUE NOT NULL)
+            """
+        )
+        self._conn.commit()
+
+    def insert_category(self, category: str):
+        self._cur.execute(
+            """
+            INSERT INTO vinted_categories (name)
+            VALUES (%s)
+            ON CONFLICT (name) DO NOTHING
+            """,
+            (category,)
+        )
+        self._conn.commit()
+
+    def get_categories(self) -> list:
+        self._cur.execute(
+            """
+            SELECT name FROM vinted_categories
+            """
+        )
+        return [category[0] for category in self._cur.fetchall()]
+
+
+class VintedDBManager(ParserDBManagerABC):
+    def __init__(self):
+        super().__init__()
+
+    def drop_table(self):
+        self._cur.execute(
+            """
+            DROP TABLE IF EXISTS vinted_items
+            """
+        )
+        self._conn.commit()
+
+    def create_table(self):
+        self._cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS vinted_items (
             id SERIAL PRIMARY KEY,
             url VARCHAR(255) UNIQUE NOT NULL,
             name VARCHAR(255),
@@ -55,14 +154,14 @@ class VintedDBManager(DBManagerABC):
             seller VARCHAR(255),
             market_place VARCHAR(255),
             date_added TIMESTAMP)
-            """, (self.__market_place,)
+            """
         )
         self._conn.commit()
 
     def insert_item(self, item):
         self._cur.execute(
             """
-            INSERT INTO Vinted.items (url, name, price, brand_name, size, color, category, description, condition, shipping, seller)
+            INSERT INTO vinted_items (url, name, price, brand_name, size, color, category, description, condition, shipping, seller)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
             ON CONFLICT (url) DO UPDATE SET 
             name = EXCLUDED.name,
@@ -101,7 +200,7 @@ class VintedDBManager(DBManagerABC):
 
         self._cur.execute(
             """
-            SELECT * FROM Vinted.items
+            SELECT * FROM vinted_items
             %s
             ORDER BY %s
             """, (where, order_by)
@@ -122,6 +221,3 @@ class VintedDBManager(DBManagerABC):
             (url,)
         )
         return self._cur.fetchone()
-
-    def __del__(self):
-        self._conn.close()
