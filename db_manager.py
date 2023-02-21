@@ -2,7 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from psycopg import connect
 from models import Item
-
+from decouple import config
 
 DEBUG = True
 
@@ -13,11 +13,11 @@ class ParserDBManagerABC(ABC):
     def __init__(self):
         try:
             self._conn = connect(
-                dbname=os.environ['DB_NAME'],
-                user=os.environ['DB_USER'],
-                password=os.environ['DB_PASSWORD'],
-                host=os.environ['DB_HOST'],
-                port=os.environ['DB_PORT']
+                dbname=config('DB_NAME'),
+                user=config('DB_USER'),
+                password=config('DB_PASSWORD'),
+                host=config('DB_HOST'),
+                port=config('DB_PORT')
             )
         except Exception as e:
             print(e)
@@ -61,11 +61,11 @@ class CategoryDBManagerABC(ABC):
 
     def __init__(self):
         self._conn = connect(
-            dbname=os.environ['DB_NAME'],
-            user=os.environ['DB_USER'],
-            password=os.environ['DB_PASSWORD'],
-            host=os.environ['DB_HOST'],
-            port=os.environ['DB_PORT']
+            dbname=config('DB_NAME'),
+            user=config('DB_USER'),
+            password=config('DB_PASSWORD'),
+            host=config('DB_HOST'),
+            port=config('DB_PORT')
         )
         self._cur = self._conn.cursor()
         self.create_table()

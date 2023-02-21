@@ -40,7 +40,7 @@ class VintedParser(Parser):
         super().__init__()
         self.category = None
 
-    def get(self, category: str) -> list[Item]:
+    def get(self, category: str) -> list[Item, ...]:
         """
         Parses url to a list of Items
         :param category: category string
@@ -52,7 +52,7 @@ class VintedParser(Parser):
         result = [self._parse_item(item) for item in soup]
         return result
 
-    def get_details(self, item: Item) -> Item | None:
+    def get_details(self, item: Item) -> Item:
         """
         Not ready yet
         :param item: this function will saturate item with details
@@ -64,10 +64,12 @@ class VintedParser(Parser):
             item.brand_name = soup.find('span', itemprop='name').text
         except AttributeError:
             item.brand_name = None
+
         try:
-            item.condition = soup.find('div', itemprop='itemCondition').text if not None else None
+            item.condition = soup.find('div', itemprop='itemCondition').text
         except AttributeError:
             item.condition = None
+
         try:
             item.color = soup.find('div', itemprop='color').text
         except AttributeError:

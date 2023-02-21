@@ -59,9 +59,4 @@ def get_item_details(item: Item) -> Item:
 
 
 if __name__ == '__main__':
-    # print(get_item_details(
-    #     'https://www.vinted.pl/'
-    #     'mezczyzni/akcesoria-dodatki/'
-    #     'kapelusze-i-czapki/'
-    #     'zimowe-czapki/2697590571-czapka'))
     main()
