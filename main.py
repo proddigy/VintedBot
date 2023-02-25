@@ -1,61 +1,18 @@
-import time
+"""
+This is the main file of the project. It is responsible for running the whole program.
+"""
+import threading
 
-from parser import VintedParser
-from db_manager import VintedDBManager
-from models import Item
-
-
-marketplaces = ('vinted', 'depop', 'ebay', 'mercari', 'grailed')
-
-marketplace_to_dbmanager = {
-    'vinted': VintedDBManager,
-    # 'depop': DepopDBManager,
-    # 'ebay': EbayDBManager,
-    # 'mercari': MercariDBManager,
-    # 'grailed': GrailedDBManager
-}
-marketplace_to_parser = {
-    'vinted': VintedParser,
-    # 'depop': DepopParser,
-    # 'ebay': EbayParser,
-    # 'mercari': MercariParser,
-    # 'grailed': GrailedParser
-}
+from script import vinted_script
 
 
 def main():
-    from tqdm import tqdm
-    marketplace = get_marketplace()
-    category = input('Enter category: ')
-    # db_m = marketplace_to_dbmanager[marketplace]()
-    parser = marketplace_to_parser[marketplace]()
-    items = parser.get(category)
-    for item in tqdm(items,
-                     desc='Inserting items into database',
-                     colour='green',
-                     unit='items',
-                     total=len(items)):
-        print(parser.get_details(item))
-        time.sleep(1)
-
-
-def get_marketplace():
-    marketplace = input('Enter marketplace: ')
-    match marketplace:
-        case 'vinted':
-            return marketplace
-        case 'exit':
-            exit()
-        case _:
-            print('Marketplace not supported')
-
-    get_marketplace()
-
-
-def get_item_details(item: Item) -> Item:
-    marketplace = get_marketplace()
-    parser = marketplace_to_parser[marketplace]()
-    return parser.get_details(item)
+    """
+    Runs different scripts depending on marketplace in different threads
+    """
+    category = 'vetements'
+    threading.Thread(target=vinted_script(category)).start()
+    # threading.Thread(target=grailed_script).start()
 
 
 if __name__ == '__main__':

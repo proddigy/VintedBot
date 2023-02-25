@@ -1,30 +1,33 @@
-import os
+"""
+This module contains classes for working with database
+"""
+
 from abc import ABC, abstractmethod
 from psycopg import connect
-from models import Item
+from models import Item, DetailedItem
 from decouple import config
 
 DEBUG = True
 
 
 class ParserDBManagerABC(ABC):
+    """
+    Abstract class for database managers
+    """
     __instance = None
 
     def __init__(self):
-        try:
-            self._conn = connect(
+        self._conn = connect(
                 dbname=config('DB_NAME'),
                 user=config('DB_USER'),
                 password=config('DB_PASSWORD'),
                 host=config('DB_HOST'),
                 port=config('DB_PORT')
-            )
-        except Exception as e:
-            print(e)
-            exit()
+        )
+
         self._cur = self._conn.cursor()
         if DEBUG:
-            self.drop_table()
+            self._drop_table()
         self.create_table()
 
     @abstractmethod
@@ -40,11 +43,11 @@ class ParserDBManagerABC(ABC):
         pass
 
     @abstractmethod
-    def get_item(self, url: str) -> Item:
+    def get_item(self, url: str) -> DetailedItem:
         pass
 
     @abstractmethod
-    def drop_table(self):
+    def _drop_table(self):
         pass
 
     def __new__(cls, *args, **kwargs):
@@ -126,10 +129,8 @@ class VintedCategoryDBManager(CategoryDBManagerABC):
 
 
 class VintedDBManager(ParserDBManagerABC):
-    def __init__(self):
-        super().__init__()
 
-    def drop_table(self):
+    def _drop_table(self):
         self._cur.execute(
             """
             DROP TABLE IF EXISTS vinted_items
@@ -142,19 +143,16 @@ class VintedDBManager(ParserDBManagerABC):
             """
             CREATE TABLE IF NOT EXISTS vinted_items (
             id SERIAL PRIMARY KEY,
-            url VARCHAR(255) UNIQUE NOT NULL,
             name VARCHAR(255),
             price FLOAT,
             brand_name VARCHAR(255),
             size VARCHAR(40),
             color VARCHAR(40),
             category VARCHAR(255),
-            description TEXT,
             condition VARCHAR(255),
-            shipping VARCHAR(255),
-            seller VARCHAR(255),
             market_place VARCHAR(255),
-            date_added TIMESTAMP)
+            date_added TIMESTAMP,
+            url VARCHAR(255) UNIQUE NOT NULL)
             """
         )
         self._conn.commit()
@@ -162,8 +160,9 @@ class VintedDBManager(ParserDBManagerABC):
     def insert_item(self, item):
         self._cur.execute(
             """
-            INSERT INTO vinted_items (url, name, price, brand_name, size, color, category, description, condition, shipping, seller)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
+            INSERT INTO vinted_items (name, price, brand_name, size, 
+            color, category, condition, market_place, date_added, url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
             ON CONFLICT (url) DO UPDATE SET 
             name = EXCLUDED.name,
             price = EXCLUDED.price,
@@ -171,21 +170,21 @@ class VintedDBManager(ParserDBManagerABC):
             size = EXCLUDED.size,
             color = EXCLUDED.color,
             category = EXCLUDED.category,
-            description = EXCLUDED.description,
             condition = EXCLUDED.condition,
-            shipping = EXCLUDED.shipping,
-            seller = EXCLUDED.seller
+            market_place = EXCLUDED.market_place,
+            date_added = EXCLUDED.date_added
             """,
-            (item.url, item.name, item.price, item.brand_name, item.size, item.color, item.category, item.description,
-             item.condition, item.shipping, item.seller)
+            (item.name, item.price, item.brand_name, item.size, item.color,
+             item.category, item.condition, item.market_place,
+             item.date_added, item.url)
         )
         self._conn.commit()
 
-    def get_items(self, order_by, where, reverse: bool = False) -> list:
+    def get_items(self, order_by: str = 'id',
+                  reverse: bool = False) -> list:
         """
         Gets all items from DB
         :param order_by: Takes name of column to order by
-        :param where: Takes name of column to filter by
         :param reverse: If True, orders by DESC, else by ASC
         :return: list of items
         """
@@ -194,17 +193,11 @@ class VintedDBManager(ParserDBManagerABC):
         else:
             order_by = f'{order_by} ASC'
 
-        if where:
-            where = f'WHERE {where}'
-        else:
-            where = ''
-
         self._cur.execute(
             """
             SELECT * FROM vinted_items
-            %s
             ORDER BY %s
-            """, (where, order_by)
+            """, (order_by,)
         )
         return self._cur.fetchall()
 
@@ -216,7 +209,96 @@ class VintedDBManager(ParserDBManagerABC):
         """
         self._cur.execute(
             """
-            SELECT * FROM Vinted.items
+            SELECT * FROM vinted_items
+            WHERE url = %s
+            """,
+            (url,)
+        )
+        return self._cur.fetchone()
+
+
+class GrailedDBManager(ParserDBManagerABC):
+
+    def _drop_table(self):
+        self._cur.execute(
+            """
+            DROP TABLE IF EXISTS grailed_items
+            """
+        )
+        self._conn.commit()
+
+    def create_table(self):
+        self._cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS grailed_items (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255),
+            price FLOAT,
+            brand_name VARCHAR(255),
+            size VARCHAR(40),
+            color VARCHAR(40),
+            category VARCHAR(255),
+            condition VARCHAR(255),
+            market_place VARCHAR(255),
+            date_added TIMESTAMP,
+            url VARCHAR(255) UNIQUE NOT NULL)
+            """
+        )
+        self._conn.commit()
+
+    def insert_item(self, item):
+        self._cur.execute(
+            """
+            INSERT INTO grailed_items (name, price, brand_name, size, 
+            color, category, condition, market_place, date_added, url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
+            ON CONFLICT (url) DO UPDATE SET 
+            name = EXCLUDED.name,
+            price = EXCLUDED.price,
+            brand_name = EXCLUDED.brand_name,
+            size = EXCLUDED.size,
+            color = EXCLUDED.color,
+            category = EXCLUDED.category,
+            condition = EXCLUDED.condition,
+            market_place = EXCLUDED.market_place,
+            date_added = EXCLUDED.date_added
+            """,
+            (item.name, item.price, item.brand_name, item.size, item.color,
+             item.category, item.condition, item.market_place,
+             item.date_added, item.url)
+        )
+        self._conn.commit()
+
+    def get_items(self, order_by: str = 'id',
+                  reverse: bool = False) -> list:
+        """
+        Gets all items from DB
+        :param order_by: Takes name of column to order by
+        :param reverse: If True, orders by DESC, else by ASC
+        :return: list of items
+        """
+        if reverse:
+            order_by = f'{order_by} DESC'
+        else:
+            order_by = f'{order_by} ASC'
+
+        self._cur.execute(
+            """
+            SELECT * FROM grailed_items
+            ORDER BY %s
+            """, (order_by,)
+        )
+        return self._cur.fetchall()
+
+    def get_item(self, url: str) -> Item:
+        """
+        Gets item from DB by url
+        :param url: url of item
+        :return: Item
+        """
+        self._cur.execute(
+            """
+            SELECT * FROM grailed_items
             WHERE url = %s
             """,
             (url,)
