@@ -1,0 +1,7 @@
+Starting at 2023-03-01 12:19:36.021328
+Found 0 unique ids in database
+Found 96 new items
+Starting to insert items to database
+Done at 2023-03-01 12:19:47.829474
+Found 96 new items
+Found 96 new items

@@ -5,6 +5,7 @@ import sys
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 import time
+from src.settings import VINTED_ITEMS_PER_PAGE
 
 Url = str
 
@@ -13,11 +14,13 @@ def vinted_category_url(requested_category: str) -> Url:
     """
     Returns url for vinted category
     :param requested_category:
-    :return:
+    :return: Url
     """
-    return f'https://www.vinted.pl/vetements?search_text=' \
-           f'{requested_category.strip().replace(" ", "+")}' \
-           f'&order=newest_first'
+    requested_category = requested_category.strip().replace(' ', '+')
+    return f'https://www.vinted.pl/api/v2/catalog/items?search_text=' \
+           f'{requested_category}' \
+           f'&catalog_ids=2050&color_ids=&brand_ids=&size_ids=&material_ids=&video_game_rating_ids=&status_ids=&page=1&' \
+           f'per_page={VINTED_ITEMS_PER_PAGE}'
 
 
 def grailed_category_url(search_request: str, driver_selenium) -> Url:
@@ -62,3 +65,12 @@ def get_marketplace():
             print('Marketplace not supported')
 
     get_marketplace()
+
+def timer_decorator(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Function {func.__name__} took {end_time - start_time} seconds to run.")
+        return result
+    return wrapper
