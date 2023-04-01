@@ -2,17 +2,18 @@
 This module is used to perform http requests.
 """
 import requests
+from src.logger import logger
 
 HEADERS = {
     "User-Agent": "PostmanRuntime/7.28.4",
     "Host": "www.vinted.pl",
 }
 
-domain = "pl"
+DOMAIN = "pl"
 
-VINTED_URL = f"https://www.vinted.{domain}"
-VINTED_AUTH_URL = f"https://www.vinted.{domain}/auth/token_refresh"
-VINTED_API_URL = f"https://www.vinted.{domain}/api/v2"
+VINTED_URL = f"https://www.vinted.{DOMAIN}"
+VINTED_AUTH_URL = f"https://www.vinted.{DOMAIN}/auth/token_refresh"
+VINTED_API_URL = f"https://www.vinted.{DOMAIN}/api/v2"
 VINTED_PRODUCTS_ENDPOINT = "catalog/items"
 
 
@@ -22,13 +23,13 @@ class VintedRequester:
     """
 
     def __init__(self):
-        self.VINTED_URL = VINTED_URL
-        self.VINTED_AUTH_URL = VINTED_AUTH_URL
-        self.VINTED_API_URL = VINTED_API_URL
-        self.VINTED_PRODUCTS_ENDPOINT = VINTED_PRODUCTS_ENDPOINT
+        self.vinted_url = VINTED_URL
+        self.vinted_auth_url = VINTED_AUTH_URL
+        self.vinted_api_url = VINTED_API_URL
+        self.vinted_products_endpoint = VINTED_PRODUCTS_ENDPOINT
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
-        self.setCookies()
+        self.set_cookies()
 
     def get(self, url, data=None):
         """
@@ -55,14 +56,14 @@ class VintedRequester:
         response.raise_for_status()
         return response
 
-    def setCookies(self, domain="pl"):
+    def set_cookies(self):
         """used to set cookies"""
         try:
-            self.post(self.VINTED_AUTH_URL)
-            print("Cookies set!")
+            self.post(self.vinted_auth_url)
+            logger.info("Cookies set!")
         except Exception as e:
-            print(
-                f"There was an error fetching cookies for {self.VINTED_URL}\n Error : {e}"
+            logger.error(
+                f"There was an error fetching cookies for {self.vinted_url}\n Error : {e}"
             )
 
 

@@ -2,20 +2,18 @@
 This module contains parser for vinted.pl
 """
 
-import datetime
 import os
 import re
-
 import urllib3
-from bs4 import BeautifulSoup, ResultSet
 
+from typing import List
 from src.data_structures import Item
-from src.parsers.helpers import vinted_category_url
-from src.parsers.parser_abc import Parser
-from src.requester import requester as http
-from src.logger import logger
-from src.parsers.helpers import timer_decorator
 from src.db_client.db_client_vinted import VintedDbClient
+from src.logger import logger
+from src.requester import requester as http
+from src.settings import BASE_DIR
+from src.parsers.utils import vinted_category_url
+from src.parsers.parser_abc import Parser
 
 
 class VintedParser(Parser):
@@ -29,48 +27,51 @@ class VintedParser(Parser):
         self._reference = 'vinted'
         self._requester = http
 
-    def get_items(self, category: str) -> list[Item, ...]:
-        """
-        Parses url to a list of Items
-        :param category: category string
-        :return: list[Item, ...] list of parsed items
-        """
-        api_url = vinted_category_url(category)
+    def __str__(self):
+        return 'Vinted Parser'
+
+    def __call__(self, *args, **kwargs):
+        logger.debug('Starting Vinted Parser')
+        for category_id in self._db_client.category_ids:
+            logger.debug(f'Parsing {category_id}')
+            new_items = self._get_new_items(category_id)
+            if new_items:
+                self._insert_items(new_items)
+            else:
+                logger.debug('No new items')
+        logger.debug(f'Done parsing f{category_id}')
+
+    def _get_new_items(self, category_id: int) -> List[Item]:
+        category_name = self._db_client.get_category_name(category_id)
+        api_url = vinted_category_url(category_name)
         search_response = http.get(api_url)
         items = search_response['items']
-        unique_ids = self._db_client.get_unique_ids()
+        unique_ids = self._db_client.unique_ids
         logger.debug(f'Found {len(unique_ids)} unique ids in database')
-        result = [
-            Item(
-                title=item['title'],
-                unique_id=item['id'],
-                price=item['price'],
-                brand_name=item['brand_title'],
-                size=item['size_title'],
-                url=item['url'],
-                image_path=self._get_image(item)
-            ) for item in items
-            if item['id'] not in unique_ids
-        ]
-        logger.info(f'Found {len(result)} new items')
-        logger.debug(f'Starting to insert items to database')
+        result = [self._get_item(item, category_id) for item in items]
+        logger.debug(f'Fetched {len(items)} items from API for category_id {category_id}')
         return result
 
+    def _get_item(self, item: dict, category_id: int) -> Item:
+        return Item(
+            title=item['title'],
+            unique_id=item['id'],
+            price=item['price'],
+            brand_name=item['brand_title'],
+            size=item['size_title'],
+            url=item['url'],
+            image_path=self._get_image(item),
+            category_id=category_id,
+        )
+
     def _get_image(self, item: dict) -> str:
-        """
-        Gets image from item url
-        :param item: Item object
-        :param bs4_object: BeautifulSoup object containing the HTML of the item's web page
-        :return str: path to the image file
-        """
-        # Download the image from the URL using urllib3
         http_ = urllib3.PoolManager()
         response = http_.request('GET', item['photo']['url'])
         img_data = response.data
 
-        # Create a directory path for the item's marketplace, category, and ID
         dir_path = os.path.join(
-            '../../media',
+            BASE_DIR.parent,
+            'images',
             self._reference,
             item['brand_title'],
             str(item['id']))
@@ -78,7 +79,6 @@ class VintedParser(Parser):
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
 
-        # Save the image to the file system under the directory path
         normalized_title = re.sub(r"[^\w\s]", " ", item['title'])
         filename = os.path.join(
             dir_path,
@@ -89,19 +89,22 @@ class VintedParser(Parser):
                 image_file.write(img_data)
         except Exception as e:
             logger.error(e)
-            logger.error(f'Failed to save image for {item["url"]}')
+            logger.error(f'Failed to save image for {item["url"]}', exc_info=True)
         return filename
 
-    def insert_items(self, items: list[Item, ...]) -> None:
-        """
-        Inserts items to database
-        :param items: list of items
-        :return: None
-        """
-        self._db_client.insert_items(items)
+    def _insert_items(self, items: list[Item, ...]) -> None:
+        logger.debug(f'Inserting {len(items)} items to database')
+        try:
+            self._db_client.insert_items(items)
+            logger.debug(f'Inserted {len(items)} items to the database')
+        except Exception as e:
+            logger.error(e)
+            logger.error('Failed to insert items to database', exc_info=True)
+        logger.debug('Database updated')
+
+
+vinted = VintedParser()
 
 
 if __name__ == '__main__':
-    logger.debug(f'Starting at {datetime.datetime.now()}')
-    VintedParser().get_items('nike kurtki')
-    logger.debug(f'Done at {datetime.datetime.now()}')
+    vinted()

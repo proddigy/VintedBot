@@ -1,11 +1,7 @@
 """
 This module contains dataclasses for vinted.pl and grailed.com
 """
-
-import datetime
 from dataclasses import dataclass
-import os
-import sys
 
 
 @dataclass
@@ -20,3 +16,4 @@ class Item:
     size: str = None
     url: str = None
     image_path: str = None
+    category_id: int = None

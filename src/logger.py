@@ -5,9 +5,73 @@ This module contains the logger class.
 import logging
 import os
 import sys
-from src.settings import LOG_FILE_PATH, DEBUG
+import traceback
+from src.settings import DEBUG, LOG_FORMAT
+from src.settings import LOG_DEBUG_FILE_PATH, LOG_INFO_FILE_PATH, LOG_WARNING_FILE_PATH, \
+    LOG_ERROR_FILE_PATH
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+logging.basicConfig(format=LOG_FORMAT)
+
+
+class CustomLogger:
+    """
+    Custom logger class that can be extended by other logger classes.
+    """
+
+    def __init__(self, logger_name, log_level, log_file_path):
+        self.__logger = logging.getLogger(logger_name)
+        self.__logger.setLevel(log_level)
+        handler = logging.FileHandler(log_file_path)
+        handler.setLevel(log_level)
+        handler.setFormatter(logging.Formatter(LOG_FORMAT))
+        handler.encoding = 'utf-8'
+        self.__logger.addHandler(handler)
+
+        if DEBUG:
+            with open(log_file_path, 'w', encoding='utf-8'):
+                pass
+
+    def __call__(self, *args, **kwargs):
+        exc_info = kwargs.pop('exc_info', False)
+        if exc_info and self.__logger.level == logging.ERROR:
+            kwargs['exc_info'] = True
+        self.__logger.log(self.__logger.level, *args, **kwargs)
+
+
+class LoggerDebug(CustomLogger):
+    """
+    Logger debug class
+    """
+
+    def __init__(self):
+        super().__init__('debug_logger', logging.DEBUG, LOG_DEBUG_FILE_PATH)
+
+
+class LoggerInfo(CustomLogger):
+    """
+    Logger info class
+    """
+
+    def __init__(self):
+        super().__init__('info_logger', logging.INFO, LOG_INFO_FILE_PATH)
+
+
+class LoggerWarning(CustomLogger):
+    """
+    Logger warning class
+    """
+
+    def __init__(self):
+        super().__init__('warning_logger', logging.WARNING, LOG_WARNING_FILE_PATH)
+
+
+class LoggerError(CustomLogger):
+    """
+    Logger error class
+    """
+
+    def __init__(self):
+        super().__init__('error_logger', logging.ERROR, LOG_ERROR_FILE_PATH)
 
 
 class Logger:
@@ -16,57 +80,10 @@ class Logger:
     """
 
     def __init__(self):
-        self._logger = logging.getLogger('vinted_parser')
-        self._logger.setLevel(logging.DEBUG)
-        self._logger.addHandler(logging.FileHandler(LOG_FILE_PATH))
-        self._logger.addHandler(logging.StreamHandler())
-        if DEBUG:
-            self._logger.setLevel(logging.DEBUG)
-            # clear log file every time the program is run
-            with open(LOG_FILE_PATH, 'w', encoding='utf-8'):
-                pass
-        else:
-            self._logger.setLevel(logging.INFO)
-
-    def info(self, message: str) -> None:
-        """
-        Logs info message
-        :param message:
-        :return: None
-        """
-        self._logger.info(message)
-
-    def error(self, message: str) -> None:
-        """
-        Logs error message
-        :param message:
-        :return: None
-        """
-        self._logger.error(message)
-
-    def warning(self, message: str) -> None:
-        """
-        Logs warning message
-        :param message:
-        :return: None
-        """
-        self._logger.warning(message)
-
-    def debug(self, message: str) -> None:
-        """
-        Logs debug message
-        :param message:
-        :return: None
-        """
-        self._logger.debug(message)
-
-    def critical(self, message: str) -> None:
-        """
-        Logs critical message
-        :param message:
-        :return: None
-        """
-        self._logger.critical(message)
+        self.debug = LoggerDebug()
+        self.info = LoggerInfo()
+        self.warning = LoggerWarning()
+        self.error = LoggerError()
 
 
 logger = Logger()

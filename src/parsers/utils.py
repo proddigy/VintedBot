@@ -2,9 +2,11 @@
 This module contains functions that are used in other modules
 """
 import sys
+import time
+from alive_progress import alive_bar
+from functools import wraps
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
-import time
 from src.settings import VINTED_ITEMS_PER_PAGE
 
 Url = str
@@ -19,7 +21,14 @@ def vinted_category_url(requested_category: str) -> Url:
     requested_category = requested_category.strip().replace(' ', '+')
     return f'https://www.vinted.pl/api/v2/catalog/items?search_text=' \
            f'{requested_category}' \
-           f'&catalog_ids=2050&color_ids=&brand_ids=&size_ids=&material_ids=&video_game_rating_ids=&status_ids=&page=1&' \
+           f'&catalog_ids=2050' \
+           f'&color_ids=' \
+           f'&brand_ids=' \
+           f'&size_ids=' \
+           f'&material_ids=' \
+           f'&video_game_rating_ids=' \
+           f'&status_ids=' \
+           f'&page=1&' \
            f'per_page={VINTED_ITEMS_PER_PAGE}'
 
 
@@ -66,11 +75,36 @@ def get_marketplace():
 
     get_marketplace()
 
+
 def timer_decorator(func):
+    """
+    Decorator that prints function execution time
+    :param func:
+    :return: str: time in seconds
+    """
+
     def wrapper(*args, **kwargs):
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
         print(f"Function {func.__name__} took {end_time - start_time} seconds to run.")
         return result
+
+    return wrapper
+
+
+def progress_bar(func):
+    """
+    wrapper for progress bar
+    :param func: function to wrap
+    :return: wrapped function
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        iterations = kwargs.pop("iterations", 100)
+        with alive_bar(iterations) as bar:
+            result = func(*args, **kwargs, bar=bar)
+        return result
+
     return wrapper

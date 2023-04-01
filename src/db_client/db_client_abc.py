@@ -1,13 +1,11 @@
-"""
-This module contains classes for working with database
-"""
 from abc import ABC, abstractmethod
-from sqlalchemy import create_engine, Column, Integer
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
 from decouple import config
-from src.settings import DEBUG
-
+from ..settings import DEBUG
+from .models import Category
 
 Base = declarative_base()
 
@@ -21,51 +19,56 @@ class ParserDbClientABC(ABC):
     def __init__(self):
         self._engine = create_engine(
             f"postgresql://"
-            f"{config('DB_USER')}:"
-            f"{config('DB_PASSWORD')}@"
-            f"{config('DB_HOST')}:"
-            f"{config('DB_PORT')}/"
-            f"{config('DB_NAME')}"
+            f"{config('DB_USER')}:{config('DB_PASSWORD')}@"
+            f"{config('DB_HOST')}:{config('DB_PORT')}/"
+            f"{config('DB_NAME')}",
+            pool_size=10,  # Set a maximum number of concurrent connections to the database
+            max_overflow=20,  # Allow up to 20 additional connections to be created if needed
         )
 
         Base.metadata.create_all(self._engine)
 
-        Session_SQL = sessionmaker(bind=self._engine)
-        self._session = Session_SQL()
+        self._session_factory = scoped_session(
+            sessionmaker(bind=self._engine),
+            scopefunc=self._get_scopefunc(),
+        )
 
         if DEBUG:
-            self._drop_table()
+            try:
+                self.clear_table()
+            except ProgrammingError:
+                self._create_table()
+
+    def _get_scopefunc(self):
+        """
+        Get a scopefunc to be used with the scoped session. This ensures that each thread gets its own session.
+        """
+        return None
 
     @abstractmethod
     def _create_table(self):
         pass
 
     @abstractmethod
-    def _drop_table(self):
+    def clear_table(self):
         pass
 
     @abstractmethod
-    def insert_items(self, item):
+    def insert_items(self, items):
         """
         Inserts item to database
-        :param item:
+        :param items:
         """
         return
 
-    @abstractmethod
-    def get_unique_ids(self) -> set[int]:
-        """
-        Returns set of unique ids from database
-        :return: set[int]
-        """
-        unique_ids = self._session.query(Table_name.unique_id).all()
-        return {unique_id[0] for unique_id in unique_ids}
+    def _initialize_session(self):
+        self._session = self._session_factory()
 
-    @classmethod
     def __new__(cls, *args, **kwargs):
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
         return cls.__instance
 
     def __del__(self):
-        self._session.close_all()
+        if hasattr(self, '_session_factory'):
+            self._session_factory.remove()

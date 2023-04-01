@@ -1,19 +1,39 @@
 """
-This module contains functions that are used in other modules
+This module contains settings that are used in other modules
 """
-import sys
 import os
+import pathlib
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+BASE_DIR = pathlib.Path(__file__).parent
 
 DEBUG = False
 
-PARSERS = [
-    'src.parsers.vinted_parser.VintedParser',
-]
 
-PARSER_UPDATE_INTERVAL = 20  # minutes
+PARSER_UPDATE_INTERVAL = 1  # minutes
+
 
 VINTED_ITEMS_PER_PAGE = 96
 
-LOG_FILE_PATH = os.path.join(os.path.dirname(__file__), 'logs', 'log.txt')
+
+# LOGGING
+LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+
+LOG_DEBUG_FILE_PATH = os.path.join(
+    BASE_DIR, 'logs', 'log_debug.log'
+)
+
+LOG_INFO_FILE_PATH = os.path.join(
+    BASE_DIR, 'logs', 'log_info.log'
+)
+
+LOG_WARNING_FILE_PATH = os.path.join(
+    BASE_DIR, 'logs', 'log_warning.log'
+)
+
+LOG_ERROR_FILE_PATH = os.path.join(
+    BASE_DIR, 'logs', 'log_error.log'
+)
+
+
+LOG_LEVEL = 'debug'
