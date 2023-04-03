@@ -8,10 +8,10 @@ from logger import logger
 
 def start_parser(parser):
     try:
-        threading.Thread(target=parser()()).start()
+        threading.Thread(target=parser()).start()
         logger.info(f'Successfully started parser thread for {parser}')
     except Exception as e:
-        logger.error(f'Failed to start parser thread for {parser}: {e}')
+        logger.error(f'Failed to start parser thread for {parser}: {e}', exc_info=True)
 
 
 def main():

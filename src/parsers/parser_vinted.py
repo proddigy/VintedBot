@@ -97,10 +97,10 @@ class VintedParser(Parser):
         try:
             self._db_client.insert_items(items)
             logger.debug(f'Inserted {len(items)} items to the database')
+            logger.debug('Database updated')
         except Exception as e:
             logger.error(e)
             logger.error('Failed to insert items to database', exc_info=True)
-        logger.debug('Database updated')
 
 
 vinted = VintedParser()

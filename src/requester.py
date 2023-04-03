@@ -1,6 +1,5 @@
-"""
-This module is used to perform http requests.
-"""
+import time
+
 import requests
 from src.logger import logger
 
@@ -39,11 +38,14 @@ class VintedRequester:
         :return: dict
             Json format
         """
-        response = self.session.get(url, params=data)
-
-        response.raise_for_status()
-
-        return response.json()
+        try:
+            response = self.session.get(url, params=data)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            self.set_cookies()
+            return self.get(url, data)
 
     def post(self, url, params=None):
         """
@@ -53,18 +55,30 @@ class VintedRequester:
         :return: none
         """
         response = self.session.post(url, params)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            self.set_cookies()
+
         return response
 
-    def set_cookies(self):
+    def set_cookies(self, attempt=1):
         """used to set cookies"""
+        if attempt > 3:
+            logger.error("Failed to set cookies after 3 attempts")
+            time.sleep(60)
+            self.set_cookies()
+
         try:
             self.post(self.vinted_auth_url)
             logger.info("Cookies set!")
         except Exception as e:
             logger.error(
-                f"There was an error fetching cookies for {self.vinted_url}\n Error : {e}"
+                f"There was an error fetching cookies for {self.vinted_url} on attempt {attempt}\n Error : {e}"
             )
+            self.set_cookies(attempt + 1)
 
 
 requester = VintedRequester()
+

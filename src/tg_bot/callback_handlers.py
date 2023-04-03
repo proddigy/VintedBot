@@ -1,9 +1,12 @@
+import time
+
 from aiogram import types
 from aiogram.types import CallbackQuery
+from aiogram.utils.exceptions import InvalidQueryID
 
 from .bot import dp, bot
 from .keyboards import *
-from .utils import send_new_items_to_user, edit_message_with_keyboard
+from .utils import send_new_items_to_user, edit_message_with_keyboard, send_new_item
 from .states import NewCategory
 from src.tg_bot.db_handler import get_user_categories, get_categories, add_category_to_user, get_unpublished_items_by_category
 
@@ -83,21 +86,22 @@ async def category_view_items_handler(call: CallbackQuery):
     user_id = call.from_user.id
     category_id = int(call.data.split("_")[1])
 
-    # Retrieve unpublished items for the user and the selected category
     unpublished_items = await get_unpublished_items_by_category(user_id, category_id)
 
-    # Send the items to the user
     if unpublished_items:
         for item in unpublished_items:
             await send_new_item(user_id, item)
+            time.sleep(1)
     else:
         await bot.send_message(chat_id=user_id, text="No new items in this category.")
 
-    # Return to the "My categories" keyboard
     user_categories = await get_user_categories(user_id)
     keyboard = categories_keyboard(user_categories)
     await bot.send_message(chat_id=user_id, text="Your categories:", reply_markup=keyboard)
 
-    await call.answer()
+    try:
+        await call.answer()
+    except InvalidQueryID as e:
+        logger.error(f"Failed to answer callback query: {e}")
 
 
