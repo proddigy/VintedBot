@@ -8,7 +8,9 @@ from .bot import dp, bot
 from .keyboards import *
 from .utils import send_new_items_to_user, edit_message_with_keyboard, send_new_item
 from .states import NewCategory
-from src.tg_bot.db_handler import get_user_categories, get_categories, add_category_to_user, get_unpublished_items_by_category
+from src.tg_bot.db_handler import get_user_categories, get_categories, add_category_to_user, \
+    get_unpublished_items_by_category, delete_user_category, get_users_for_category, delete_category
+from src.logger import  logger
 
 
 # callback handlers
@@ -105,3 +107,37 @@ async def category_view_items_handler(call: CallbackQuery):
         logger.error(f"Failed to answer callback query: {e}")
 
 
+# In your callback_handlers.py
+
+@dp.callback_query_handler(lambda call: call.data == "settings")
+async def settings_handler(call: types.CallbackQuery):
+    categories = await get_user_categories(call.from_user.id)
+
+    keyboard = InlineKeyboardMarkup()
+
+    for category in categories:
+        keyboard.add(
+            InlineKeyboardButton(
+                category.name,
+                callback_data=f"delete_category_{category.id}"
+            )
+        )
+
+    keyboard.add(InlineKeyboardButton("Back", callback_data="back_to_menu"))
+
+    await call.message.edit_text("Select a category to delete:", reply_markup=keyboard)
+    await call.answer()
+
+
+@dp.callback_query_handler(lambda call: call.data.startswith("delete_category_"))
+async def delete_category_handler(call: types.CallbackQuery):
+    category_id = int(call.data.split("_")[-1])
+    await delete_user_category(call.from_user.id, category_id)
+
+    users_connected_to_category = await get_users_for_category(category_id)
+
+    if not users_connected_to_category:
+        await delete_category(category_id)
+
+    await call.message.edit_text("Category deleted successfully.", reply_markup=menu_keyboard())
+    await call.answer()

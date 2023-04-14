@@ -1,28 +1,37 @@
+import datetime
 import threading
 import time
 import schedule
 from settings import PARSER_UPDATE_INTERVAL, DEBUG
-from consts import PARSERS
 from logger import logger
+from db_client.models import UserPublishedItem, VintedItem
+from tg_bot.db_handler import clear_table
+from parsers.parser_vinted import vinted
 
 
-def start_parser(parser):
+def start_parser():
     try:
-        threading.Thread(target=parser()).start()
-        logger.info(f'Successfully started parser thread for {parser}')
+        threading.Thread(target=vinted()).start()
+        logger.info(f'Successfully started parser thread for vinted')
     except Exception as e:
-        logger.error(f'Failed to start parser thread for {parser}: {e}', exc_info=True)
+        logger.error(f'Failed to start parser thread for vinted: {e}', exc_info=True)
+
+
+def scheduler():
+    if datetime.datetime.now().hour == 0:
+        clear_table()
+        time.sleep(360 * 5)  # Pause for 5 hours
+
+    schedule.every(PARSER_UPDATE_INTERVAL).minutes.do(start_parser)
+    time.sleep(10)
 
 
 def main():
-    for parser in PARSERS:
-        schedule.every(PARSER_UPDATE_INTERVAL).minutes.do(start_parser, parser)
-        time.sleep(10)
+    scheduler()
+    while True:
+        schedule.run_pending()
+        time.sleep(5)
 
 
 if __name__ == '__main__':
     main()
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
-

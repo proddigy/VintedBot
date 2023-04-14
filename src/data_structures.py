@@ -15,5 +15,5 @@ class Item:
     brand_name: str = None
     size: str = None
     url: str = None
-    image_path: str = None
+    image_url: str = None
     category_id: int = None

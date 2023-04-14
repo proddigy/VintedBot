@@ -4,7 +4,7 @@ from aiogram.dispatcher import filters, FSMContext
 from .bot import dp, bot
 from .keyboards import menu_keyboard
 from .db_handler import create_user, is_active, deactivate_user_by_id_async, activate_user_by_id_async,\
-    get_user_by_username_async, create_category, add_category_to_user
+    get_user_by_username_async, create_category, add_category_to_user, get_user_by_id_async
 from .states import NewCategory
 from src.logger import logger
 
@@ -12,10 +12,15 @@ from src.logger import logger
 @dp.message_handler(commands=["start"])
 async def cmd_start(message: types.Message):
     user = message.from_user
+    existing_user = get_user_by_id_async(user.id)
+    if existing_user:
+        await bot.send_message(text="Welcome back!", chat_id=user.id)
+        await message.answer("Here is menu:", reply_markup=menu_keyboard())
+        return
     logger.info(f"New user: {user.id} - {user.username}")
     try:
         await create_user(user)
-        await message.reply("Welcome to the bot! Notifications are now enabled.")
+        await message.reply("Welcome to the bot!\n Here is menu:", reply_markup=menu_keyboard())
     except Exception as e:
         logger.warning(f"Failed to create user: {e}")
         await message.reply("An error occurred. Please try again later.")

@@ -39,13 +39,12 @@ async def send_new_item(user_id: int, item: Item) -> None:
                    f"{item.url}"
 
     try:
-        with open(item.image_path, "rb") as image_file:
-            await bot.send_photo(
-                chat_id=user_id,
-                photo=image_file,
-                caption=message_text,
-                parse_mode=ParseMode.HTML,
-            )
+        await bot.send_photo(
+            chat_id=user_id,
+            photo=item.image_url,
+            caption=message_text,
+            parse_mode=ParseMode.HTML,
+        )
         await add_published_item(user_id, item.unique_id)
     except Exception as e:
         logger.error(f"Error sending notification to user {user_id}: {e}")

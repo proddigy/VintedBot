@@ -39,6 +39,7 @@ class VintedDbClient(ParserDbClientABC):
 
     def _create_table(self):
         VintedItem.__table__.create(self._engine)
+        UserPublishedItem.__table__.create(self._engine)
         try:
             Category.__table__.create(self._engine)
         except ProgrammingError:
@@ -59,10 +60,9 @@ class VintedDbClient(ParserDbClientABC):
         return category.name
 
     @property
-    def category_ids(self) -> set[int]:
+    def categories(self) -> set[Category]:
         """
-        Returns set of category IDs from the database
-        :return: set[int]
+        returns all categories
+        :return: set[Category], set of all categories
         """
-        category_ids = self._session.query(Category.id).all()
-        return {category_id[0] for category_id in category_ids}
+        return set(self._session.query(Category).all())

@@ -7,10 +7,10 @@ import pathlib
 
 BASE_DIR = pathlib.Path(__file__).parent
 
-DEBUG = False
+DEBUG = True
 
 
-PARSER_UPDATE_INTERVAL = 1  # minutes
+PARSER_UPDATE_INTERVAL = 5  # minutes
 
 
 VINTED_ITEMS_PER_PAGE = 96

@@ -2,6 +2,7 @@ import asyncio
 from typing import List
 from aiogram import types
 from sqlalchemy import create_engine as create_sync_engine
+from sqlalchemy import delete, and_
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +13,7 @@ from typing import Optional
 from src.db_client.models import *
 from src.logger import logger
 
-db_config = f"postgresql+asyncpg://{config('DB_USER')}:{config('DB_PASSWORD')}@localhost:{config('DB_PORT')}/{config('DB_NAME')}"
+db_config = f"postgresql+asyncpg://{config('DB_USER')}:{config('DB_PASSWORD')}@{config('DB_HOST')}:{config('DB_PORT')}/{config('DB_NAME')}"
 
 
 class SessionManager:
@@ -20,6 +21,7 @@ class SessionManager:
         self.async_engine = create_async_engine(db_config)
         self.sync_engine = create_sync_engine(db_config.replace("postgresql+asyncpg", "postgresql"))
         self.async_session = None
+        Base.metadata.create_all(self.sync_engine, checkfirst=True)
 
     async def init_async_session(self):
         if self.async_session is not None:
@@ -49,11 +51,10 @@ async def init_engine():
 @asynccontextmanager
 async def get_session() -> AsyncSession:
     if session_manager.async_session is None:
-        await init_engine()
+        await session_manager.init_async_session()
 
     async with session_manager.async_session() as session:
         try:
-            logger.info("Async session successfully connected")
             yield session
             await session.commit()
         except Exception as e:
@@ -87,8 +88,7 @@ async def get_all_active_users():
     async with get_session() as session:
         stmt = select(TelegramBotUser).where(TelegramBotUser.active)
         result = await session.execute(stmt)
-        users = result.scalars().all()
-        return [user.id for user in users]
+        return [user.id for user in result.scalars().all()]
 
 
 async def is_admin_async(user_id: int) -> bool:
@@ -139,18 +139,20 @@ async def get_admin_users_ids() -> List[int]:
     async with get_session() as session:
         stmt = select(AdminUser).where(AdminUser.is_admin == True)
         result = await session.execute(stmt)
-        admin_ids = result.scalars().all()
-        admin_ids = list(map(lambda x: x.user_id, admin_ids))
-        return admin_ids
+        return [admin_user.user_id for admin_user in result.scalars().all()]
 
 
 async def get_unpublished_items(user_id: int) -> List[VintedItem]:
     async with get_session() as session:
         stmt = (
             select(VintedItem)
+            .join(UserCategory, VintedItem.category_id == UserCategory.category_id)
             .where(
-                VintedItem.id.notin_(
-                    select(UserPublishedItem.item_id).where(UserPublishedItem.user_id == user_id)
+                and_(
+                    UserCategory.user_id == user_id,
+                    VintedItem.unique_id.notin_(
+                        select(UserPublishedItem.item_id).where(UserPublishedItem.user_id == user_id)
+                    )
                 )
             )
             .order_by(VintedItem.brand_name, VintedItem.price)
@@ -216,13 +218,45 @@ async def create_category(category_name: str) -> Category:
 
 async def get_unpublished_items_by_category(user_id: int, category_id: int) -> List[VintedItem]:
     async with get_session() as session:
-        stmt = (
+        stmt = stmt = (
             select(VintedItem)
-            .join(UserPublishedItem, VintedItem.id == UserPublishedItem.item_id, isouter=True)
             .where(VintedItem.category_id == category_id)
-            .where((UserPublishedItem.user_id == user_id) | (UserPublishedItem.user_id == None))
-            .order_by(VintedItem.price)
+            .where(VintedItem.unique_id.notin_(
+                select(UserPublishedItem.item_id).where(UserPublishedItem.user_id == user_id)
+            ))
+            .order_by(VintedItem.brand_name, VintedItem.price)
         )
         result = await session.execute(stmt)
         unpublished_items = result.scalars().all()
         return unpublished_items
+
+
+async def delete_user_category(user_id: int, category_id: int):
+    async with get_session() as session:
+        stmt = (
+            delete(UserCategory)
+            .where(
+                (UserCategory.user_id == user_id) & (UserCategory.category_id == category_id)
+            )
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def get_users_for_category(category_id: int) -> List[TelegramBotUser]:
+    async with get_session() as session:
+        stmt = (
+            select(TelegramBotUser)
+            .join(UserCategory, UserCategory.user_id == TelegramBotUser.id)
+            .where(UserCategory.category_id == category_id)
+        )
+        result = await session.execute(stmt)
+        users = result.scalars().all()
+        return users
+
+
+async def delete_category(category_id: int):
+    async with get_session() as session:
+        stmt = delete(Category).where(Category.id == category_id)
+        await session.execute(stmt)
+        await session.commit()
